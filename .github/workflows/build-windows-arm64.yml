@@ -1,0 +1,113 @@
+name: Build GCS for Windows ARM64
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'GCS release version (e.g. 5.44.0) or "latest"'
+        required: false
+        default: 'latest'
+  push:
+    branches: [main, master]
+    paths:
+      - '.github/workflows/build-windows-arm64.yml'
+      - 'scripts/**'
+
+jobs:
+  # Native build on GitHub's Windows 11 ARM64 runners, using upstream's own
+  # build.sh + packager so the artifact matches an official release (icon,
+  # version resources, file associations, zip layout).
+  #
+  # NOTE: windows-11-arm hosted runners are free for PUBLIC repos only. If
+  # this repo is private, rely on the cross-zig job below instead.
+  native:
+    runs-on: windows-11-arm
+    continue-on-error: true
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - name: Resolve version
+        id: ver
+        shell: pwsh
+        run: |
+          $v = '${{ github.event.inputs.version }}'
+          if (-not $v -or $v -eq 'latest') {
+            $meta = Invoke-RestMethod 'https://proxy.golang.org/github.com/richardwilkes/gcs/v5/@latest'
+            $v = $meta.Version.TrimStart('v')
+          }
+          "version=$v" >> $env:GITHUB_OUTPUT
+
+      - name: Check out GCS source
+        uses: actions/checkout@v4
+        with:
+          repository: richardwilkes/gcs
+          ref: v${{ steps.ver.outputs.version }}
+
+      - name: Set up MSYS2 (CLANGARM64)
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: CLANGARM64
+          path-type: inherit
+          install: >-
+            mingw-w64-clang-aarch64-clang
+            zip
+            unzip
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 'stable'
+          cache: true
+
+      - name: Build and package
+        env:
+          GCS_RELEASE: ${{ steps.ver.outputs.version }}
+        run: |
+          # build.sh only recognizes MINGW*/MSYS* as Windows; include CLANGARM64
+          sed -i 's/MINGW\*|MSYS\*)/MINGW*|MSYS*|CLANG*)/' build.sh
+          ./build.sh --dist
+
+      - name: Verify ARM64 GUI executable
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem -Recurse -Filter gcs.exe | Select-Object -First 1
+          $b = [IO.File]::ReadAllBytes($exe.FullName)
+          $pe = [BitConverter]::ToInt32($b, 0x3C)
+          $machine = [BitConverter]::ToUInt16($b, $pe + 4)
+          if ($machine -ne 0xAA64) { throw "Not ARM64 (machine=0x$($machine.ToString('x')))" }
+          Write-Host "OK: native ARM64 executable at $($exe.FullName)"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: gcs-${{ steps.ver.outputs.version }}-windows-arm64-native
+          path: gcs-*-windows-arm64.zip
+          if-no-files-found: error
+
+  # Cross-compiled build using Zig as the aarch64-windows C compiler. Runs on
+  # plain ubuntu runners, so it works on private repos too. This is the same
+  # path as scripts/build-windows-arm64.sh.
+  cross-zig:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out this repo
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 'stable'
+
+      - name: Install zig
+        run: python3 -m pip install ziglang
+
+      - name: Build
+        run: ./scripts/build-windows-arm64.sh "${{ github.event.inputs.version || 'latest' }}"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: gcs-windows-arm64-cross
+          path: build/gcs-*-windows-arm64.zip
+          if-no-files-found: error
