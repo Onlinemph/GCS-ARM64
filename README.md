@@ -90,6 +90,36 @@ optionally pin a version.
    `sed -i 's/MINGW\*|MSYS\*)/MINGW*|MSYS*|CLANG*)/' build.sh`
 4. `GCS_RELEASE=5.44.0 ./build.sh --dist`
 
+## Troubleshooting: window never appears (OpenGL failure)
+
+GCS's UI framework requires a hardware-capable **OpenGL 3.2+** driver and
+deliberately refuses Windows' built-in software GL 1.1. On Snapdragon
+devices, classic OpenGL is normally supplied by Microsoft's *OpenCL, OpenGL,
+and Vulkan Compatibility Pack* (GLon12). If that layer is broken or missing,
+GCS exits silently at startup; the log at
+`%LOCALAPPDATA%\com.trollworks.gcs\Logs\gcs.log` shows
+`failed to make fake OpenGL context current` or
+`failed to choose pixel format for OpenGL context`.
+
+Fix by giving GCS its own OpenGL driver, no system changes needed:
+
+1. Download an ARM64 Mesa build from
+   [mmozeiko/build-mesa releases](https://github.com/mmozeiko/build-mesa/releases)
+   — preferably `mesa-d3d12-arm64-<ver>.7z` (GPU-accelerated via Direct3D
+   12), or `mesa-llvmpipe-arm64-<ver>.7z` (software rendering, works
+   unconditionally).
+2. Extract it (Windows 11 File Explorer opens .7z natively) and copy the
+   DLLs (`opengl32.dll`, plus `dxil.dll` if present) into the same folder
+   as `gcs.exe`.
+3. Run `gcs.exe`. An app-local `opengl32.dll` always beats the system one,
+   so this affects nothing else on the machine.
+
+If the d3d12 variant still fails, use llvmpipe — it needs no GPU driver at
+all, and Snapdragon X CPUs render a 2D UI with it easily. Also worth doing:
+install Windows Update + optional driver updates (Qualcomm GPU) and update
+the compatibility pack in the Microsoft Store, then try again without the
+local DLLs.
+
 ## Updating to a new GCS release
 
 Run the workflow (or the script) with the new version number — nothing here
