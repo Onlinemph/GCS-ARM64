@@ -51,6 +51,26 @@ unsigned int glGetError(void);
 
 typedef HGLRC (WINAPI *createCtxAttribs_t)(HDC, HGLRC, const int*);
 
+// Assembled-interface fallback for the arm64 skia DLL, which was built
+// without the WGL native-interface factory.
+static gr_glfunc_ptr winGLGetProc(void *ctx, const char *name) {
+	static HMODULE gl;
+	typedef PROC (WINAPI *wglGetProcAddress_t)(LPCSTR);
+	static wglGetProcAddress_t wgpa;
+	if (!gl) {
+		gl = LoadLibraryA("opengl32.dll");
+		if (gl) wgpa = (wglGetProcAddress_t)(void*)GetProcAddress(gl, "wglGetProcAddress");
+	}
+	if (!gl) return NULL;
+	PROC p = GetProcAddress(gl, name);
+	if (!p && wgpa) {
+		p = wgpa(name);
+		INT_PTR v = (INT_PTR)p;
+		if (v == 0 || v == 1 || v == 2 || v == 3 || v == -1) p = NULL;
+	}
+	return (gr_glfunc_ptr)(void*)p;
+}
+
 static void reportModule(const char *name) {
 	HMODULE m = GetModuleHandleA(name);
 	if (!m) { printf("  %s: NOT LOADED\n", name); return; }
@@ -150,7 +170,12 @@ int runDiag(void) {
 	printf("[skia] calling gr_glinterface_create_native_interface...\n");
 	const gr_glinterface_t *iface = gr_glinterface_create_native_interface();
 	printf("  glinterface=%p\n", (void*)iface);
-	if (!iface) { printf("FAIL: gr_glinterface_create_native_interface returned NULL\n"); goto hold; }
+	if (!iface) {
+		printf("  native factory NULL (expected on arm64 DLL); assembling via gr_glmake_assembled_interface...\n");
+		iface = gr_glmake_assembled_interface(NULL, winGLGetProc);
+		printf("  assembled glinterface=%p\n", (void*)iface);
+	}
+	if (!iface) { printf("FAIL: could not create GL interface at all\n"); goto hold; }
 	printf("  calling gr_direct_context_make_gl...\n");
 	gr_direct_context_t *ctx = gr_direct_context_make_gl(iface);
 	printf("  direct_context=%p\n", (void*)ctx);

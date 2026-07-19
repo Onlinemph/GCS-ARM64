@@ -63,6 +63,69 @@ sed -i.bak \
 	"$SK/skia_other.go" && rm -f "$SK/skia_other.go.bak"
 grep -q 'lskia_windows_arm64' "$SK/skia_other.go" || { echo "skia cgo patch failed to apply" >&2; exit 1; }
 
+# The arm64 Skia DLL was built without the Windows GL loader
+# (GrGLMakeNativeInterface is a stub returning null — the amd64 DLL contains
+# the opengl32.dll/wglGetProcAddress machinery, the arm64 DLL does not), so
+# native interface creation must be replaced with gr_glmake_assembled_interface
+# fed by a proc-getter implemented here. Rename the stock implementation and
+# add per-platform wrappers.
+sed -i.bak 's|^func GLInterfaceCreateNativeInterface() GLInterface {$|func glInterfaceCreateNativeInterfaceDefault() GLInterface {|' \
+	"$SK/skia_other.go" && rm -f "$SK/skia_other.go.bak"
+grep -q 'glInterfaceCreateNativeInterfaceDefault' "$SK/skia_other.go" || { echo "iface rename failed" >&2; exit 1; }
+
+cat > "$SK/skia_iface_notwin.go" <<'EOF'
+//go:build !windows
+
+package skia
+
+func GLInterfaceCreateNativeInterface() GLInterface {
+	return glInterfaceCreateNativeInterfaceDefault()
+}
+EOF
+
+cat > "$SK/skia_iface_windows_arm64.go" <<'EOF'
+package skia
+
+/*
+#include <windows.h>
+#include "sk_capi.h"
+
+// The skia_windows_arm64.dll build lacks the WGL-based native interface
+// factory (it returns NULL), so assemble the GL interface ourselves: resolve
+// core entry points from opengl32.dll and extensions via wglGetProcAddress.
+// A GL context must be current when this runs, which unison guarantees.
+static gr_glfunc_ptr goWinGLGetProc(void *ctx, const char *name) {
+	static HMODULE gl;
+	typedef PROC (WINAPI *wglGetProcAddress_t)(LPCSTR);
+	static wglGetProcAddress_t wgpa;
+	if (!gl) {
+		gl = LoadLibraryA("opengl32.dll");
+		if (gl) wgpa = (wglGetProcAddress_t)(void*)GetProcAddress(gl, "wglGetProcAddress");
+	}
+	if (!gl) return NULL;
+	PROC p = GetProcAddress(gl, name);
+	if (!p && wgpa) {
+		p = wgpa(name);
+		INT_PTR v = (INT_PTR)p;
+		if (v == 0 || v == 1 || v == 2 || v == 3 || v == -1) p = NULL;
+	}
+	return (gr_glfunc_ptr)(void*)p;
+}
+
+static const gr_glinterface_t *makeAssembledGLInterface(void) {
+	return gr_glmake_assembled_interface(NULL, goWinGLGetProc);
+}
+*/
+import "C"
+
+func GLInterfaceCreateNativeInterface() GLInterface {
+	if iface := GLInterface(C.makeAssembledGLInterface()); iface != nil {
+		return iface
+	}
+	return glInterfaceCreateNativeInterfaceDefault()
+}
+EOF
+
 # ColorTypeN32 moves to per-platform files: the removed const for non-windows,
 # and BGRA (matching the windows/amd64 syscall binding) for windows/arm64.
 cat > "$SK/skia_n32_notwin.go" <<'EOF'
