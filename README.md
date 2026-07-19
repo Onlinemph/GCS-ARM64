@@ -101,7 +101,10 @@ GCS exits silently at startup; the log at
 `failed to make fake OpenGL context current` or
 `failed to choose pixel format for OpenGL context`.
 
-These builds carry two patches to Unison (see
+**Status: confirmed working on a Surface Pro 11** (Snapdragon X, Windows 11)
+with the Mesa llvmpipe `opengl32.dll` alongside the exe.
+
+These builds carry three patches to Unison (see
 `scripts/patch-unison-arm64.sh`):
 
 - **WGL routing** — all pixel-format and buffer-swap calls go through
@@ -117,6 +120,12 @@ These builds carry two patches to Unison (see
   The ARM64 build uses Unison's cgo binding (as on Linux/macOS) so the C
   compiler marshals arguments correctly. Consequence: `skia.dll` ships in
   the zip and **must stay next to `gcs.exe`**.
+- **assembled GL interface** — the upstream `skia_windows_arm64.dll` was
+  built without the WGL native-interface factory (unlike the amd64 DLL, it
+  contains no `opengl32.dll`/`wglGetProcAddress` loader machinery), so
+  Skia's `GrGLMakeNativeInterface` always returns null — every draw
+  attempt fails and the window stays white. The patch supplies the GL
+  loader from our side via `gr_glmake_assembled_interface`.
 
 Fix by giving GCS its own OpenGL driver, no system changes needed:
 
