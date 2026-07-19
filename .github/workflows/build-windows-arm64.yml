@@ -44,6 +44,11 @@ jobs:
           repository: richardwilkes/gcs
           ref: v${{ steps.ver.outputs.version }}
 
+      - name: Check out this repo (for the setjmp shim)
+        uses: actions/checkout@v4
+        with:
+          path: arm64-tools
+
       - name: Set up MSYS2 (CLANGARM64)
         uses: msys2/setup-msys2@v2
         with:
@@ -51,6 +56,7 @@ jobs:
           path-type: inherit
           install: >-
             mingw-w64-clang-aarch64-clang
+            mingw-w64-clang-aarch64-llvm
             zip
             unzip
 
@@ -64,6 +70,12 @@ jobs:
         env:
           GCS_RELEASE: ${{ steps.ver.outputs.version }}
         run: |
+          # The prebuilt libmupdf_windows_arm64.a imports _setjmpex, which
+          # ARM64 Windows' ucrtbase.dll does not export. Link a self-contained
+          # setjmp/longjmp implementation instead.
+          clang -c -o setjmp_aarch64.o arm64-tools/scripts/setjmp_aarch64.S
+          llvm-ar rcs libsetjmpshim.a setjmp_aarch64.o
+          export CGO_LDFLAGS="-L$PWD -lsetjmpshim"
           # build.sh only recognizes MINGW*/MSYS* as Windows; include CLANGARM64
           sed -i 's/MINGW\*|MSYS\*)/MINGW*|MSYS*|CLANG*)/' build.sh
           ./build.sh --dist

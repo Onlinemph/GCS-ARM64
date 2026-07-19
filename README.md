@@ -56,9 +56,13 @@ Three quirks the script handles for you:
 - Zig's linker driver rejects `-Wl,--allow-multiple-definition` (harmless to
   drop with Zig's CRT) and GNU linker scripts, and needs `-mwindows`
   rewritten to `-Wl,--subsystem,windows`.
-- The prebuilt MuPDF ARM64 library imports `_setjmpex` from `ucrtbase.dll`,
-  which Zig's bundled mingw import libs don't expose; the script generates a
-  one-symbol import library for it.
+- The prebuilt MuPDF ARM64 library imports `_setjmpex` as a DLL function,
+  but ARM64 Windows' `ucrtbase.dll` does not export it (MSVC uses compiler
+  intrinsics for setjmp on ARM64), so any exe with that import dies at load
+  time with *"The procedure entry point _setjmpex could not be located"*.
+  The build links `scripts/setjmp_aarch64.S` — a small self-contained
+  setjmp/longjmp implementation (functionally verified under QEMU) — and
+  routes MuPDF's `_setjmpex`/`longjmp` imports to it.
 - Upstream's Windows resource generation only runs on Windows, so the script
   uses `go-winres` to build the ARM64 `.syso` (icon, version info, manifest).
 

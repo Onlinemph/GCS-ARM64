@@ -84,17 +84,16 @@ exec $ZIG c++ -target aarch64-windows-gnu "\$@"
 EOF
 chmod +x "$BIN/zcc" "$BIN/zcxx"
 
-# --- Import stub for ucrtbase!_setjmpex --------------------------------------
+# --- setjmp/longjmp shim -----------------------------------------------------
 # The prebuilt libmupdf_windows_arm64.a shipped with richardwilkes/pdf imports
-# _setjmpex from ucrtbase.dll (standard on Windows ARM64), but zig's bundled
-# mingw import libraries do not expose it. Generate a one-symbol import
-# library so the reference resolves; ucrtbase.dll provides it at runtime.
-cat > "$WORK/ucrt_setjmpex.def" <<'EOF'
-LIBRARY ucrtbase.dll
-EXPORTS
-_setjmpex
-EOF
-$ZIG dlltool -m arm64 -d "$WORK/ucrt_setjmpex.def" -l "$WORK/libucrtsetjmp.a"
+# _setjmpex and longjmp as dllimports, but ARM64 Windows' ucrtbase.dll does
+# not export _setjmpex (MSVC uses compiler intrinsics on ARM64), so the
+# import cannot be satisfied by any system DLL and the exe fails to load with
+# "entry point _setjmpex could not be located". Link a small self-contained
+# implementation instead (see scripts/setjmp_aarch64.S); MuPDF only ever
+# pairs its own setjmp with its own longjmp, so this is safe.
+"$BIN/zcc" -c -o "$WORK/setjmp_aarch64.o" "$ROOT/scripts/setjmp_aarch64.S"
+$ZIG ar rcs "$WORK/libsetjmpshim.a" "$WORK/setjmp_aarch64.o"
 
 # --- Windows resources (icon, version info, GUI manifest) --------------------
 cd "$SRC"
@@ -116,7 +115,7 @@ echo "Building GCS v$GCS_VERSION for windows/arm64..."
 export GOOS=windows GOARCH=arm64 CGO_ENABLED=1
 export CC="$BIN/zcc" CXX="$BIN/zcxx"
 export GOEXPERIMENT=jsonv2,nodwarf5
-export CGO_LDFLAGS="-L$WORK -lucrtsetjmp"
+export CGO_LDFLAGS="-L$WORK -lsetjmpshim"
 go build -trimpath \
 	-ldflags "-s -w -H windowsgui -X github.com/richardwilkes/toolbox/v2/xos.AppVersion=$GCS_VERSION" \
 	-o "$WORK/gcs.exe" .
