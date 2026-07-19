@@ -100,27 +100,15 @@ cd "$SRC"
 export GOTOOLCHAIN=auto
 export GOFLAGS=-buildvcs=false
 
-# --- Patch unison: route all WGL calls through opengl32.dll ------------------
-# Unison sets the pixel format and swaps buffers via gdi32.dll, which always
-# talks to the system ICD, while contexts are created via opengl32.dll. That
-# split breaks the standard app-local Mesa opengl32.dll override needed on
-# machines whose system OpenGL (e.g. GLon12 on Snapdragon) is broken: half
-# the calls hit the system driver and half hit Mesa. Microsoft's opengl32.dll
-# exports identical wgl* variants of all three functions, so routing through
-# opengl32.dll is behavior-neutral normally and makes the Mesa drop-in work.
+# --- Patch unison for windows/arm64 (WGL routing + cgo Skia binding) ---------
+# See scripts/patch-unison-arm64.sh for the full story.
 if [ ! -d "$WORK/unison-patched" ]; then
 	UNISON_DIR="$(go mod download -json github.com/richardwilkes/unison | sed -n 's/.*"Dir": "\(.*\)".*/\1/p')"
 	[ -n "$UNISON_DIR" ] || { echo "failed to locate unison module" >&2; exit 1; }
 	cp -R "$UNISON_DIR" "$WORK/unison-patched"
 	chmod -R u+w "$WORK/unison-patched"
+	"$ROOT/scripts/patch-unison-arm64.sh" "$WORK/unison-patched" $ZIG dlltool
 fi
-GDI="$WORK/unison-patched/internal/w32/gdi32_windows.go"
-sed -i.bak \
-	-e 's/gdi32\.NewProc("DescribePixelFormat")/opengl32.NewProc("wglDescribePixelFormat")/' \
-	-e 's/gdi32\.NewProc("SetPixelFormat")/opengl32.NewProc("wglSetPixelFormat")/' \
-	-e 's/gdi32\.NewProc("SwapBuffers")/opengl32.NewProc("wglSwapBuffers")/' \
-	"$GDI" && rm -f "$GDI.bak"
-grep -q 'wglSetPixelFormat' "$GDI" || { echo "unison WGL patch failed to apply" >&2; exit 1; }
 go mod edit -replace "github.com/richardwilkes/unison=$WORK/unison-patched"
 if [ ! -f rsrc_windows_arm64.syso ]; then
 	echo "Generating Windows ARM64 resources..."
@@ -144,9 +132,13 @@ go build -trimpath \
 	-o "$WORK/gcs.exe" .
 
 # --- Package -----------------------------------------------------------------
+# The cgo Skia binding links against the Skia DLL, which must ship next to
+# gcs.exe under its internal export name "skia.dll" (the syscall binding's
+# embed-and-extract loader is not compiled in on arm64).
 cd "$WORK"
+cp "$WORK/unison-patched/internal/skia/skia_windows_arm64.dll" skia.dll
 rm -f "gcs-$GCS_VERSION-windows-arm64.zip"
-zip -9 -q "gcs-$GCS_VERSION-windows-arm64.zip" gcs.exe
+zip -9 -q "gcs-$GCS_VERSION-windows-arm64.zip" gcs.exe skia.dll
 
 python3 - "$WORK/gcs.exe" <<'EOF'
 import struct, sys

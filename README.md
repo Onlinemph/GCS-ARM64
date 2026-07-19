@@ -101,11 +101,22 @@ GCS exits silently at startup; the log at
 `failed to make fake OpenGL context current` or
 `failed to choose pixel format for OpenGL context`.
 
-These builds carry a small patch to Unison that routes all pixel-format and
-buffer-swap calls through `opengl32.dll` instead of `gdi32.dll`. Stock
-Unison splits WGL traffic between the two, which silently defeats the
-app-local Mesa override below (gdi32 always talks to the system driver);
-with the patch, dropping Mesa next to the exe takes over completely.
+These builds carry two patches to Unison (see
+`scripts/patch-unison-arm64.sh`):
+
+- **WGL routing** — all pixel-format and buffer-swap calls go through
+  `opengl32.dll` instead of `gdi32.dll`. Stock Unison splits WGL traffic
+  between the two, which silently defeats the app-local Mesa override below
+  (gdi32 always talks to the system driver).
+- **cgo Skia binding** — stock Unison drives Skia on Windows through raw
+  syscalls that pass floats as integer bits. That works on x64 by ABI
+  coincidence (Go mirrors args into XMM registers; the MS x64 convention
+  uses positional slots) but on ARM64 the integer/float register sequences
+  are separate and Go's runtime does no SIMD mirroring, so every
+  float-taking Skia call receives garbage — producing a blank white window.
+  The ARM64 build uses Unison's cgo binding (as on Linux/macOS) so the C
+  compiler marshals arguments correctly. Consequence: `skia.dll` ships in
+  the zip and **must stay next to `gcs.exe`**.
 
 Fix by giving GCS its own OpenGL driver, no system changes needed:
 
