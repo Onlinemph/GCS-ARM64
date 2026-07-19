@@ -101,6 +101,12 @@ GCS exits silently at startup; the log at
 `failed to make fake OpenGL context current` or
 `failed to choose pixel format for OpenGL context`.
 
+These builds carry a small patch to Unison that routes all pixel-format and
+buffer-swap calls through `opengl32.dll` instead of `gdi32.dll`. Stock
+Unison splits WGL traffic between the two, which silently defeats the
+app-local Mesa override below (gdi32 always talks to the system driver);
+with the patch, dropping Mesa next to the exe takes over completely.
+
 Fix by giving GCS its own OpenGL driver, no system changes needed:
 
 1. Download an ARM64 Mesa build from

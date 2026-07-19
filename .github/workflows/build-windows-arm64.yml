@@ -76,6 +76,17 @@ jobs:
           clang -c -o setjmp_aarch64.o arm64-tools/scripts/setjmp_aarch64.S
           llvm-ar rcs libsetjmpshim.a setjmp_aarch64.o
           export CGO_LDFLAGS="-L$PWD -lsetjmpshim"
+          # Route unison's pixel-format/swap calls through opengl32.dll so an
+          # app-local Mesa opengl32.dll can fully override a broken system
+          # OpenGL (behavior-neutral otherwise; see README troubleshooting).
+          UNISON_DIR="$(go mod download -json github.com/richardwilkes/unison | sed -n 's/.*"Dir": "\(.*\)".*/\1/p')"
+          cp -R "$UNISON_DIR" ../unison-patched && chmod -R u+w ../unison-patched
+          sed -i \
+            -e 's/gdi32\.NewProc("DescribePixelFormat")/opengl32.NewProc("wglDescribePixelFormat")/' \
+            -e 's/gdi32\.NewProc("SetPixelFormat")/opengl32.NewProc("wglSetPixelFormat")/' \
+            -e 's/gdi32\.NewProc("SwapBuffers")/opengl32.NewProc("wglSwapBuffers")/' \
+            ../unison-patched/internal/w32/gdi32_windows.go
+          go mod edit -replace "github.com/richardwilkes/unison=$(cd ..; pwd)/unison-patched"
           # build.sh only recognizes MINGW*/MSYS* as Windows; include CLANGARM64
           sed -i 's/MINGW\*|MSYS\*)/MINGW*|MSYS*|CLANG*)/' build.sh
           ./build.sh --dist
