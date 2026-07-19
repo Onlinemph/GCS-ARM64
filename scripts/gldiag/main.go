@@ -16,6 +16,21 @@ package main
 #include <stdbool.h>
 #include "sk_capi.h"
 
+static LONG WINAPI crashHandler(EXCEPTION_POINTERS *ep) {
+	DWORD code = ep->ExceptionRecord->ExceptionCode;
+	void *addr = ep->ExceptionRecord->ExceptionAddress;
+	HMODULE mod = NULL;
+	char path[MAX_PATH] = "?";
+	GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+		(LPCSTR)addr, &mod);
+	if (mod) GetModuleFileNameA(mod, path, MAX_PATH);
+	printf("\n*** NATIVE CRASH: code=0x%lx addr=%p module=%s ***\n", code, addr, path);
+	printf("press Enter to exit\n");
+	getchar();
+	ExitProcess(3);
+	return EXCEPTION_EXECUTE_HANDLER;
+}
+
 // opengl32.dll's wgl* pixel-format/swap variants (same routing as the
 // patched unison build; identical exports exist in Microsoft's and Mesa's
 // opengl32.dll).
@@ -59,6 +74,7 @@ static void pump(void) {
 
 int runDiag(void) {
 	setvbuf(stdout, NULL, _IONBF, 0);
+	SetUnhandledExceptionFilter(crashHandler);
 	printf("== gldiag ==\n[modules at start]\n");
 	reportModule("opengl32.dll");
 	reportModule("skia.dll");
@@ -131,24 +147,36 @@ int runDiag(void) {
 	printf("  done; glGetError=0x%x\n", err);
 
 	// Phase: skia path, identical to unison's surface setup.
-	printf("[skia] creating native GL interface...\n");
+	printf("[skia] calling gr_glinterface_create_native_interface...\n");
 	const gr_glinterface_t *iface = gr_glinterface_create_native_interface();
 	printf("  glinterface=%p\n", (void*)iface);
-	if (!iface) { printf("FAIL: gr_glinterface_create_native_interface\n"); return 1; }
+	if (!iface) { printf("FAIL: gr_glinterface_create_native_interface returned NULL\n"); goto hold; }
+	printf("  calling gr_direct_context_make_gl...\n");
 	gr_direct_context_t *ctx = gr_direct_context_make_gl(iface);
 	printf("  direct_context=%p\n", (void*)ctx);
-	if (!ctx) { printf("FAIL: gr_direct_context_make_gl\n"); return 1; }
+	if (!ctx) { printf("FAIL: gr_direct_context_make_gl returned NULL\n"); goto hold; }
+	printf("  calling sk_colorspace_new_srgb (unison parity)...\n");
+	sk_color_space_t *srgb = sk_colorspace_new_srgb();
+	printf("  srgb=%p\n", (void*)srgb);
 	RECT rc;
 	GetClientRect(hwnd, &rc);
 	gr_gl_framebufferinfo_t fbInfo = {0, GL_RGBA8, false};
 	gr_backendrendertarget_t *rt = gr_backendrendertarget_new_gl(rc.right - rc.left, rc.bottom - rc.top, 1, 8, &fbInfo);
 	printf("  backendrendertarget=%p (%ldx%ld)\n", (void*)rt, rc.right - rc.left, rc.bottom - rc.top);
-	if (!rt) { printf("FAIL: gr_backendrendertarget_new_gl\n"); return 1; }
-	sk_surface_props_t *props = sk_surfaceprops_new(0, 0);
+	if (!rt) { printf("FAIL: gr_backendrendertarget_new_gl returned NULL\n"); goto hold; }
+	
+	sk_surface_props_t *props = sk_surfaceprops_new(0, SK_PIXEL_GEOMETRY_RGB_H);
+	printf("  props=%p; calling sk_surface_new_backend_render_target (srgb colorspace)...\n", (void*)props);
 	sk_surface_t *surf = sk_surface_new_backend_render_target(ctx, rt, GR_SURFACE_ORIGIN_BOTTOM_LEFT,
-		SK_COLOR_TYPE_RGBA_8888, NULL, props);
+		SK_COLOR_TYPE_RGBA_8888, srgb, props);
 	printf("  surface=%p\n", (void*)surf);
-	if (!surf) { printf("FAIL: sk_surface_new_backend_render_target\n"); return 1; }
+	if (!surf) {
+		printf("  retrying with NULL colorspace...\n");
+		surf = sk_surface_new_backend_render_target(ctx, rt, GR_SURFACE_ORIGIN_BOTTOM_LEFT,
+			SK_COLOR_TYPE_RGBA_8888, NULL, props);
+		printf("  surface(null cs)=%p\n", (void*)surf);
+	}
+	if (!surf) { printf("FAIL: sk_surface_new_backend_render_target returned NULL\n"); goto hold; }
 	sk_canvas_t *canvas = sk_surface_get_canvas(surf);
 	printf("  canvas=%p\n", (void*)canvas);
 	printf("[skia clear for ~4s] window should be solid GREEN\n");
@@ -161,6 +189,9 @@ int runDiag(void) {
 	}
 	printf("  done; glGetError=0x%x\n", glGetError());
 	printf("== gldiag complete ==\n");
+hold:
+	printf("press Enter to exit\n");
+	getchar();
 	return 0;
 }
 */
