@@ -146,6 +146,18 @@ install Windows Update + optional driver updates (Qualcomm GPU) and update
 the compatibility pack in the Microsoft Store, then try again without the
 local DLLs.
 
+## Also here: GCS on a phone
+
+`web/` is a separate, in-progress experiment — a small Go server that reads
+`.gcs` files and serves them as mobile-shaped web pages, so a sheet is
+readable on a phone or tablet without installing anything. It embeds the
+upstream GCS rules engine rather than reimplementing it, so derived values
+(skill levels, weapon damage, encumbrance) match the desktop app exactly.
+
+Read-only so far. See [`web/README.md`](web/README.md) to run it and
+[`docs/gcs-online-plan.md`](docs/gcs-online-plan.md) for what is proven, what
+is not, and the roadmap.
+
 ## Updating to a new GCS release
 
 Run the workflow (or the script) with the new version number — nothing here

@@ -1,0 +1,690 @@
+GCS HTML Template v1
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1d2733">
+<title>{{.Name}}</title>
+<style>
+:root {
+  --bg: #f4f5f7; --surface: #ffffff; --raised: #eef0f3; --ink: #14181d;
+  --muted: #5d6b7a; --accent: #2f6f4f; --warn: #b3261e; --line: #d8dde3;
+  --shadow: 0 1px 3px rgba(0,0,0,.10);
+  --safe-b: env(safe-area-inset-bottom, 0px);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14181d; --surface: #1d2733; --raised: #263241; --ink: #e8ecf1;
+    --muted: #9aa8b6; --accent: #62b98a; --warn: #f2857c; --line: #2c3846;
+    --shadow: none;
+  }
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 16px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  padding-bottom: calc(4.25rem + var(--safe-b));
+  overflow-wrap: break-word;
+}
+
+/* ---------- header ---------- */
+/* Header and pool trackers stick as one block, so the trackers stay reachable
+   while scrolling a long skill or gear list. */
+.topbar {
+  position: sticky; top: 0; z-index: 20;
+  background: var(--surface); border-bottom: 1px solid var(--line);
+}
+header {
+  padding: .55rem .9rem; display: flex; align-items: center; gap: .7rem;
+}
+header .portrait {
+  width: 2.6rem; height: 2.6rem; border-radius: .45rem; object-fit: cover;
+  border: 1px solid var(--line); flex: none;
+}
+header .who { min-width: 0; flex: 1; }
+header .name {
+  font-weight: 650; font-size: 1.02rem; letter-spacing: -.01em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+header .sub {
+  color: var(--muted); font-size: .76rem;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+header .pts {
+  flex: none; text-align: right; font-variant-numeric: tabular-nums;
+  line-height: 1.15;
+}
+header .pts b { font-size: 1.02rem; }
+header .pts span { display: block; font-size: .68rem; color: var(--muted); }
+header .home {
+  flex: none; color: var(--muted); text-decoration: none;
+  font-size: 1.35rem; padding: .1rem .3rem 0 0;
+}
+
+/* ---------- pool trackers ---------- */
+.pools {
+  display: flex; gap: .5rem; padding: 0 .9rem .6rem;
+  overflow-x: auto; scrollbar-width: none;
+}
+.pools::-webkit-scrollbar { display: none; }
+.pool {
+  flex: none; display: flex; align-items: center; gap: .35rem;
+  background: var(--raised); border: 1px solid var(--line);
+  border-radius: .6rem; padding: .2rem .3rem;
+}
+.pool .lbl { font-size: .7rem; color: var(--muted); padding: 0 .1rem; font-weight: 600; }
+.pool button {
+  width: 2rem; height: 2rem; flex: none; border: 0; border-radius: .4rem;
+  background: var(--surface); color: var(--ink); font: inherit; font-size: 1.05rem;
+  line-height: 1; -webkit-tap-highlight-color: transparent;
+}
+.pool button:active { background: var(--accent); color: #fff; }
+.pool .val {
+  min-width: 3.2rem; text-align: center; font-variant-numeric: tabular-nums;
+  font-weight: 650; font-size: .95rem;
+}
+.pool .val small { color: var(--muted); font-weight: 400; }
+.pool.hurt .val { color: var(--warn); }
+
+/* ---------- panels ---------- */
+main { padding: .8rem .9rem 0; max-width: 46rem; margin: 0 auto; }
+.panel { display: none; }
+.panel.on { display: block; }
+section { margin-bottom: 1.1rem; }
+section > h2 {
+  font-size: .72rem; text-transform: uppercase; letter-spacing: .07em;
+  color: var(--muted); margin: 0 0 .4rem .1rem; font-weight: 700;
+}
+.card {
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: .7rem; box-shadow: var(--shadow); overflow: hidden;
+}
+
+/* attribute + stat grids */
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(4.6rem, 1fr)); gap: .45rem; }
+.stat {
+  background: var(--surface); border: 1px solid var(--line); border-radius: .6rem;
+  padding: .45rem .3rem; text-align: center; box-shadow: var(--shadow);
+}
+.stat .v { font-size: 1.22rem; font-weight: 650; font-variant-numeric: tabular-nums; }
+.stat .k { font-size: .64rem; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.pairs { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
+.pairs div {
+  display: flex; justify-content: space-between; gap: .5rem;
+  padding: .42rem .7rem; border-bottom: 1px solid var(--line); font-size: .85rem;
+}
+.pairs div:nth-child(odd) { border-right: 1px solid var(--line); }
+.pairs span { color: var(--muted); }
+.pairs b { font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; }
+@media (max-width: 22rem) {
+  .pairs { grid-template-columns: 1fr; }
+  .pairs div:nth-child(odd) { border-right: 0; }
+}
+
+/* item rows */
+.rows > * { border-bottom: 1px solid var(--line); }
+.rows > *:last-child { border-bottom: 0; }
+.row, summary.row { display: flex; gap: .6rem; padding: .55rem .7rem; align-items: baseline; }
+summary.row { cursor: pointer; list-style: none; -webkit-tap-highlight-color: transparent; }
+summary.row::-webkit-details-marker { display: none; }
+summary.row::after { content: "▾"; color: var(--muted); font-size: .7rem; flex: none; align-self: center; }
+details[open] > summary.row::after { transform: rotate(180deg); }
+.row .main { flex: 1; min-width: 0; }
+.row .title { font-size: .92rem; }
+.row .meta { font-size: .74rem; color: var(--muted); margin-top: .1rem; }
+.row .num {
+  flex: none; font-variant-numeric: tabular-nums; font-weight: 650;
+  font-size: .95rem; text-align: right;
+}
+.row .num small { display: block; font-weight: 400; font-size: .68rem; color: var(--muted); }
+.detail {
+  padding: .1rem .7rem .6rem 1.1rem; font-size: .8rem; color: var(--muted);
+  border-top: 1px dashed var(--line); margin-top: -.1rem;
+}
+.detail p { margin: .35rem 0; }
+[data-depth="1"] .title { padding-left: .8rem; }
+[data-depth="2"] .title { padding-left: 1.6rem; }
+[data-depth="3"] .title { padding-left: 2.4rem; }
+[data-depth="4"] .title { padding-left: 3.2rem; }
+[data-depth="5"] .title { padding-left: 4rem; }
+.unsat { color: var(--warn); }
+.tag {
+  display: inline-block; font-size: .64rem; padding: .05rem .35rem; margin: .15rem .2rem 0 0;
+  border: 1px solid var(--line); border-radius: .8rem; color: var(--muted);
+}
+.eq { color: var(--accent); font-weight: 700; }
+.noteq { color: var(--muted); opacity: .5; }
+
+/* filter box */
+.filter {
+  width: 100%; font: inherit; font-size: .88rem; padding: .55rem .75rem;
+  margin-bottom: .55rem; border: 1px solid var(--line); border-radius: .6rem;
+  background: var(--surface); color: var(--ink);
+}
+.hidden { display: none !important; }
+.none { padding: .8rem .7rem; color: var(--muted); font-size: .85rem; }
+
+/* encumbrance */
+table.enc { width: 100%; border-collapse: collapse; font-size: .8rem; }
+table.enc th {
+  font-size: .64rem; text-transform: uppercase; letter-spacing: .04em;
+  color: var(--muted); font-weight: 600; text-align: right; padding: .4rem .5rem;
+}
+table.enc th:first-child { text-align: left; }
+table.enc td { padding: .4rem .5rem; text-align: right; border-top: 1px solid var(--line);
+  font-variant-numeric: tabular-nums; }
+table.enc td:first-child { text-align: left; }
+table.enc tr.cur { background: var(--raised); font-weight: 650; }
+table.enc tr.cur td:first-child::before { content: "▸ "; color: var(--accent); }
+
+/* ---------- tab bar ---------- */
+nav {
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 20;
+  display: flex; background: var(--surface); border-top: 1px solid var(--line);
+  padding-bottom: var(--safe-b); overflow-x: auto; scrollbar-width: none;
+}
+nav::-webkit-scrollbar { display: none; }
+nav button {
+  /* min-width keeps all seven tabs (spells and notes included) on one screen
+     at 390px; the bar still scrolls if the font is scaled up. */
+  flex: 1 0 auto; min-width: 3.1rem; padding: .5rem .2rem .55rem;
+  background: none; border: 0; border-top: 2px solid transparent;
+  color: var(--muted); font: inherit; font-size: .68rem; font-weight: 600;
+  -webkit-tap-highlight-color: transparent;
+}
+nav button .ico { display: block; font-size: 1.15rem; line-height: 1.25; }
+nav button[aria-selected="true"] { color: var(--accent); border-top-color: var(--accent); }
+@media print {
+  nav, .pools, .filter { display: none; }
+  .topbar { position: static; }
+  body { padding-bottom: 0; }
+  .panel { display: block !important; }
+  details { display: block; }
+}
+</style>
+</head>
+<body data-sheet="{{.Name}}">
+
+<div class="topbar">
+<header>
+  <a class="home" href="/" aria-label="All sheets">‹</a>
+  {{with .EmbeddedPortraitDataURL}}<img class="portrait" src="{{.}}" alt="">{{end}}
+  <div class="who">
+    <div class="name">{{.Name}}</div>
+    <div class="sub">
+      {{- with .Title}}{{.}}{{end -}}
+      {{- with .Organization}}{{if $.Title}} · {{end}}{{.}}{{end -}}
+      {{- if and (not .Title) (not .Organization)}}{{with .Player}}Player: {{.}}{{end}}{{end -}}
+    </div>
+  </div>
+  <div class="pts"><b>{{.Points.Total}}</b><span>{{.Points.Unspent}} unspent</span></div>
+</header>
+
+{{if .Attributes.Pools}}
+<div class="pools">
+  {{range .Attributes.Pools}}
+  <div class="pool" data-pool="{{.ID}}" data-max="{{.Maximum}}" data-base="{{.Current}}">
+    <span class="lbl">{{.Name}}</span>
+    <button type="button" data-step="-1" aria-label="Decrease {{.FullName}}">−</button>
+    <span class="val"><span class="cur">{{.Current}}</span><small>/{{.Maximum}}</small></span>
+    <button type="button" data-step="1" aria-label="Increase {{.FullName}}">+</button>
+  </div>
+  {{end}}
+</div>
+{{end}}
+</div>
+
+<main>
+
+<!-- ============ STATS ============ -->
+<div class="panel on" id="p-stats">
+  <section>
+    <h2>Attributes</h2>
+    <div class="grid">
+      {{range .Attributes.Primary}}<div class="stat"><div class="v">{{.Value}}</div><div class="k">{{.Name}}</div></div>{{end}}
+    </div>
+  </section>
+
+  {{if .Attributes.Secondary}}
+  <section>
+    <h2>Secondary</h2>
+    <div class="grid">
+      {{range .Attributes.Secondary}}<div class="stat"><div class="v">{{.Value}}</div><div class="k">{{.Name}}</div></div>{{end}}
+    </div>
+  </section>
+  {{end}}
+
+  <section>
+    <h2>Damage &amp; Lifting</h2>
+    <div class="card"><div class="pairs">
+      <div><span>Thrust</span><b>{{.Thrust}}</b></div>
+      <div><span>Swing</span><b>{{.Swing}}</b></div>
+      <div><span>Basic Lift</span><b>{{.Lift.Basic}}</b></div>
+      <div><span>One-Handed</span><b>{{.Lift.OneHanded}}</b></div>
+      <div><span>Two-Handed</span><b>{{.Lift.TwoHanded}}</b></div>
+      <div><span>Shove</span><b>{{.Lift.Shove}}</b></div>
+      <div><span>Running Shove</span><b>{{.Lift.RunningShove}}</b></div>
+      <div><span>Carry on Back</span><b>{{.Lift.CarryOnBack}}</b></div>
+      <div><span>Shift Slightly</span><b>{{.Lift.ShiftSlightly}}</b></div>
+      <div><span>Carried Weight</span><b>{{.Equipment.CarriedWeight}}</b></div>
+    </div></div>
+  </section>
+
+  {{if .Encumbrance}}
+  <section>
+    <h2>Encumbrance</h2>
+    <div class="card"><table class="enc">
+      <tr><th>Level</th><th>Max</th><th>Move</th><th>Dodge</th></tr>
+      {{range .Encumbrance}}
+      <tr{{if .IsCurrent}} class="cur"{{end}}>
+        <td>{{.Name}}</td><td>{{.MaxLoad}}</td><td>{{.Move}}</td><td>{{.Dodge}}</td>
+      </tr>
+      {{end}}
+    </table></div>
+  </section>
+  {{end}}
+
+  <section>
+    <h2>Description</h2>
+    <div class="card"><div class="pairs">
+      {{with .Player}}<div><span>Player</span><b>{{.}}</b></div>{{end}}
+      {{with .Religion}}<div><span>Religion</span><b>{{.}}</b></div>{{end}}
+      {{with .TechLevel}}<div><span>Tech Level</span><b>{{.}}</b></div>{{end}}
+      {{with .Age}}<div><span>Age</span><b>{{.}}</b></div>{{end}}
+      {{with .Birthday}}<div><span>Birthday</span><b>{{.}}</b></div>{{end}}
+      {{with .Gender}}<div><span>Gender</span><b>{{.}}</b></div>{{end}}
+      {{with .Height}}<div><span>Height</span><b>{{.}}</b></div>{{end}}
+      {{with .Weight}}<div><span>Weight</span><b>{{.}}</b></div>{{end}}
+      <div><span>Size Modifier</span><b>{{.SizeModifier}}</b></div>
+      {{with .Hair}}<div><span>Hair</span><b>{{.}}</b></div>{{end}}
+      {{with .Eyes}}<div><span>Eyes</span><b>{{.}}</b></div>{{end}}
+      {{with .Skin}}<div><span>Skin</span><b>{{.}}</b></div>{{end}}
+      {{with .Handedness}}<div><span>Hand</span><b>{{.}}</b></div>{{end}}
+    </div></div>
+  </section>
+
+  <section>
+    <h2>Points</h2>
+    <div class="card"><div class="pairs">
+      <div><span>Total</span><b>{{.Points.Total}}</b></div>
+      <div><span>Unspent</span><b>{{.Points.Unspent}}</b></div>
+      <div><span>Attributes</span><b>{{.Points.Attributes}}</b></div>
+      <div><span>Advantages</span><b>{{.Points.Advantages}}</b></div>
+      <div><span>Disadvantages</span><b>{{.Points.Disadvantages}}</b></div>
+      <div><span>Quirks</span><b>{{.Points.Quirks}}</b></div>
+      <div><span>Ancestry</span><b>{{.Points.Ancestry}}</b></div>
+      <div><span>Skills</span><b>{{.Points.Skills}}</b></div>
+      <div><span>Spells</span><b>{{.Points.Spells}}</b></div>
+    </div></div>
+  </section>
+</div>
+
+<!-- ============ COMBAT ============ -->
+<div class="panel" id="p-combat">
+  <section>
+    <h2>Melee</h2>
+    <div class="card rows">
+      {{range .MeleeWeapons}}
+      <details data-depth="0">
+        <summary class="row">
+          <div class="main">
+            <div class="title">{{.Description}}{{with .Usage}} <span class="meta">({{.}})</span>{{end}}</div>
+            <div class="meta">{{.Damage}} · Parry {{.Parry}} · Block {{.Block}} · Reach {{.Reach}}</div>
+          </div>
+          <div class="num">{{.Level}}<small>skill</small></div>
+        </summary>
+        <div class="detail">
+          <p>Damage <b>{{.Damage}}</b> · Strength <b>{{.Strength}}</b></p>
+          {{with .Notes}}<p>{{.}}</p>{{end}}
+        </div>
+      </details>
+      {{else}}<div class="none">No melee attacks.</div>{{end}}
+    </div>
+  </section>
+
+  {{if .RangedWeapons}}
+  <section>
+    <h2>Ranged</h2>
+    <div class="card rows">
+      {{range .RangedWeapons}}
+      <details data-depth="0">
+        <summary class="row">
+          <div class="main">
+            <div class="title">{{.Description}}{{with .Usage}} <span class="meta">({{.}})</span>{{end}}</div>
+            <div class="meta">{{.Damage}} · Acc {{.Accuracy}} · Range {{.Range}} · RoF {{.RateOfFire}}</div>
+          </div>
+          <div class="num">{{.Level}}<small>skill</small></div>
+        </summary>
+        <div class="detail">
+          <p>Shots <b>{{.Shots}}</b> · Bulk <b>{{.Bulk}}</b> · Recoil <b>{{.Recoil}}</b> · Strength <b>{{.Strength}}</b></p>
+          {{with .Notes}}<p>{{.}}</p>{{end}}
+        </div>
+      </details>
+      {{end}}
+    </div>
+  </section>
+  {{end}}
+
+  {{if .BodyType.Locations}}
+  <section>
+    <h2>{{.BodyType.Name}}</h2>
+    <div class="card rows">
+      {{range .BodyType.Locations}}
+      <div class="row" data-depth="{{.Depth}}">
+        <div class="main">
+          <div class="title">{{.Where}}</div>
+          <div class="meta">Roll {{.RollRange}} · Penalty {{.Penalty}}{{with .Notes}} · {{.}}{{end}}</div>
+        </div>
+        <div class="num">{{.DR}}<small>DR</small></div>
+      </div>
+      {{end}}
+    </div>
+  </section>
+  {{end}}
+
+  {{if .Reactions}}
+  <section>
+    <h2>Reactions</h2>
+    <div class="card rows">
+      {{range .Reactions}}
+      <details>
+        <summary class="row">
+          <div class="main"><div class="title">{{.Situation}}</div></div>
+          <div class="num">{{.Total}}</div>
+        </summary>
+        <div class="detail">{{range .Sources}}<p>{{.Amount}} — {{.Source}}</p>{{end}}</div>
+      </details>
+      {{end}}
+    </div>
+  </section>
+  {{end}}
+
+  {{if .ConditionalModifiers}}
+  <section>
+    <h2>Conditional Modifiers</h2>
+    <div class="card rows">
+      {{range .ConditionalModifiers}}
+      <details>
+        <summary class="row">
+          <div class="main"><div class="title">{{.Situation}}</div></div>
+          <div class="num">{{.Total}}</div>
+        </summary>
+        <div class="detail">{{range .Sources}}<p>{{.Amount}} — {{.Source}}</p>{{end}}</div>
+      </details>
+      {{end}}
+    </div>
+  </section>
+  {{end}}
+</div>
+
+<!-- ============ TRAITS ============ -->
+<div class="panel" id="p-traits">
+  <input class="filter" type="search" placeholder="Filter traits…" data-filters="#p-traits .rows > *">
+  <div class="card rows">
+    {{range .Traits}}
+    <details data-depth="{{.Depth}}">
+      <summary class="row">
+        <div class="main">
+          <div class="title">{{.Description}}</div>
+          <div class="meta">
+            {{- with .ModifierNotes}}{{.}}{{end -}}
+            {{- with .UnsatisfiedReason}} <span class="unsat">{{.}}</span>{{end -}}
+          </div>
+        </div>
+        <div class="num">{{.Points}}<small>pts</small></div>
+      </summary>
+      <div class="detail">
+        {{with .Notes}}<p>{{.}}</p>{{end}}
+        {{with .UserDescription}}<p>{{.}}</p>{{end}}
+        {{with .CRFull}}<p>{{.}}</p>{{end}}
+        {{with .PageRef}}<p>Ref: {{.}}</p>{{end}}
+        {{range .Tags}}<span class="tag">{{.}}</span>{{end}}
+      </div>
+    </details>
+    {{else}}<div class="none">No traits.</div>{{end}}
+  </div>
+</div>
+
+<!-- ============ SKILLS ============ -->
+<div class="panel" id="p-skills">
+  <input class="filter" type="search" placeholder="Filter skills…" data-filters="#p-skills .rows > *">
+  <div class="card rows">
+    {{range .Skills}}
+    <details data-depth="{{.Depth}}">
+      <summary class="row">
+        <div class="main">
+          <div class="title">{{.Description}}</div>
+          <div class="meta">
+            {{- .RelativeLevel}}{{with .Difficulty}} · {{.}}{{end}}
+            {{- with .UnsatisfiedReason}} <span class="unsat">{{.}}</span>{{end -}}
+          </div>
+        </div>
+        <div class="num">{{.Level}}<small>{{.Points}} pts</small></div>
+      </summary>
+      <div class="detail">
+        {{with .ModifierNotes}}<p>{{.}}</p>{{end}}
+        {{with .Notes}}<p>{{.}}</p>{{end}}
+        {{with .PageRef}}<p>Ref: {{.}}</p>{{end}}
+        {{range .Tags}}<span class="tag">{{.}}</span>{{end}}
+      </div>
+    </details>
+    {{else}}<div class="none">No skills.</div>{{end}}
+  </div>
+</div>
+
+<!-- ============ SPELLS ============ -->
+{{if .Spells}}
+<div class="panel" id="p-spells">
+  <input class="filter" type="search" placeholder="Filter spells…" data-filters="#p-spells .rows > *">
+  <div class="card rows">
+    {{range .Spells}}
+    <details data-depth="{{.Depth}}">
+      <summary class="row">
+        <div class="main">
+          <div class="title">{{.Description}}</div>
+          <div class="meta">
+            {{- .RelativeLevel}}{{with .Class}} · {{.}}{{end}}
+            {{- with .Mana.Cast}} · {{.}}{{end -}}
+          </div>
+        </div>
+        <div class="num">{{.Level}}<small>{{.Points}} pts</small></div>
+      </summary>
+      <div class="detail">
+        <p>Cast <b>{{.TimeToCast}}</b> · Duration <b>{{.Duration}}</b> · Maintain <b>{{.Mana.Maintain}}</b></p>
+        {{with .Resist}}<p>Resist: {{.}}</p>{{end}}
+        {{with .Colleges}}<p>College: {{range .}}{{.}} {{end}}</p>{{end}}
+        {{with .Notes}}<p>{{.}}</p>{{end}}
+        {{with .PageRef}}<p>Ref: {{.}}</p>{{end}}
+      </div>
+    </details>
+    {{end}}
+  </div>
+</div>
+{{end}}
+
+<!-- ============ GEAR ============ -->
+<div class="panel" id="p-gear">
+  <input class="filter" type="search" placeholder="Filter equipment…" data-filters="#p-gear .rows > *">
+  <section>
+    <h2>Carried — {{.Equipment.CarriedWeight}}, ${{.Equipment.CarriedValue}}</h2>
+    <div class="card rows">
+      {{range .Equipment.Carried}}
+      <details data-depth="{{.Depth}}">
+        <summary class="row">
+          <div class="main">
+            <div class="title">
+              <span class="{{if .Equipped}}eq{{else}}noteq{{end}}">●</span>
+              {{if gt .Quantity 1}}{{.Quantity}} × {{end}}{{.Description}}
+            </div>
+            <div class="meta">
+              {{- .ExtendedWeight}} · ${{.ExtendedCost}}
+              {{- with .TechLevel}} · TL{{.}}{{end}}
+              {{- with .LegalityClass}} · LC{{.}}{{end -}}
+            </div>
+          </div>
+        </summary>
+        <div class="detail">
+          <p>Each: {{.Weight}} · ${{.Cost}}{{if gt .MaxUses 0}} · Uses {{.Uses}}/{{.MaxUses}}{{end}}</p>
+          {{with .ModifierNotes}}<p>{{.}}</p>{{end}}
+          {{with .Notes}}<p>{{.}}</p>{{end}}
+          {{with .PageRef}}<p>Ref: {{.}}</p>{{end}}
+        </div>
+      </details>
+      {{else}}<div class="none">Nothing carried.</div>{{end}}
+    </div>
+  </section>
+
+  {{if .Equipment.Other}}
+  <section>
+    <h2>Other — ${{.Equipment.OtherValue}}</h2>
+    <div class="card rows">
+      {{range .Equipment.Other}}
+      <details data-depth="{{.Depth}}">
+        <summary class="row">
+          <div class="main">
+            <div class="title">{{if gt .Quantity 1}}{{.Quantity}} × {{end}}{{.Description}}</div>
+            <div class="meta">{{.ExtendedWeight}} · ${{.ExtendedCost}}</div>
+          </div>
+        </summary>
+        <div class="detail">
+          <p>Each: {{.Weight}} · ${{.Cost}}</p>
+          {{with .Notes}}<p>{{.}}</p>{{end}}
+        </div>
+      </details>
+      {{end}}
+    </div>
+  </section>
+  {{end}}
+</div>
+
+<!-- ============ NOTES ============ -->
+{{if .Notes}}
+<div class="panel" id="p-notes">
+  <div class="card rows">
+    {{range .Notes}}
+    <div class="row" data-depth="{{.Depth}}">
+      <div class="main"><div class="title">{{.Description}}</div></div>
+    </div>
+    {{end}}
+  </div>
+</div>
+{{end}}
+
+</main>
+
+<nav role="tablist">
+  <button role="tab" aria-selected="true" data-panel="p-stats"><span class="ico">◆</span>Stats</button>
+  <button role="tab" aria-selected="false" data-panel="p-combat"><span class="ico">⚔</span>Combat</button>
+  <button role="tab" aria-selected="false" data-panel="p-traits"><span class="ico">★</span>Traits</button>
+  <button role="tab" aria-selected="false" data-panel="p-skills"><span class="ico">▤</span>Skills</button>
+  {{if .Spells}}<button role="tab" aria-selected="false" data-panel="p-spells"><span class="ico">✦</span>Spells</button>{{end}}
+  <button role="tab" aria-selected="false" data-panel="p-gear"><span class="ico">▣</span>Gear</button>
+  {{if .Notes}}<button role="tab" aria-selected="false" data-panel="p-notes"><span class="ico">✎</span>Notes</button>{{end}}
+</nav>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---- tabs -------------------------------------------------------------
+  var tabs = Array.prototype.slice.call(document.querySelectorAll('nav button'));
+  var storeKey = 'gcsweb:' + (document.body.dataset.sheet || '') + ':';
+
+  function show(panelID) {
+    var target = document.getElementById(panelID);
+    if (!target) { return; }
+    document.querySelectorAll('.panel').forEach(function (p) {
+      p.classList.toggle('on', p === target);
+    });
+    tabs.forEach(function (t) {
+      t.setAttribute('aria-selected', String(t.dataset.panel === panelID));
+    });
+    window.scrollTo(0, 0);
+    try { sessionStorage.setItem(storeKey + 'tab', panelID); } catch (e) { /* private mode */ }
+  }
+
+  tabs.forEach(function (t) {
+    t.addEventListener('click', function () { show(t.dataset.panel); });
+  });
+
+  try {
+    var last = sessionStorage.getItem(storeKey + 'tab');
+    if (last && document.getElementById(last)) { show(last); }
+  } catch (e) { /* private mode */ }
+
+  // ---- inline markdown --------------------------------------------------
+  // Note fields in a .gcs file hold Markdown. Upstream renders it with
+  // goldmark, which is not reachable from an export template, so handle the
+  // small subset that actually shows up: bold, italic, "---" separators and
+  // "- " bullets. Input is escaped first, so sheet text can never inject HTML.
+  function markdownLite(el) {
+    if (el.children.length !== 0) { return; }  // keep nested markup intact
+    var text = el.textContent;
+    if (!/[*_]|---/.test(text)) { return; }
+    var lines = text
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/\s*---\s*/g, '\n')
+      .replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>')
+      .replace(/(^|[\s(])\*([^*]+)\*/g, '$1<i>$2</i>')
+      .split('\n')
+      .map(function (line) { return line.trim().replace(/^-\s+/, '• ').replace(/\s*·\s*$/, ''); })
+      .filter(function (line) { return line !== ''; });
+    el.innerHTML = lines.join('<br>');
+  }
+  document.querySelectorAll('.meta, .detail p').forEach(markdownLite);
+
+  // ---- filters ----------------------------------------------------------
+  document.querySelectorAll('.filter').forEach(function (box) {
+    box.addEventListener('input', function () {
+      var needle = box.value.trim().toLowerCase();
+      document.querySelectorAll(box.dataset.filters).forEach(function (row) {
+        var hay = (row.textContent || '').toLowerCase();
+        row.classList.toggle('hidden', needle !== '' && hay.indexOf(needle) === -1);
+      });
+    });
+  });
+
+  // ---- pool trackers ----------------------------------------------------
+  // Current values are a play aid held on the device only; the .gcs file is
+  // never modified. Write-back is a later phase.
+  document.querySelectorAll('.pool').forEach(function (pool) {
+    var out = pool.querySelector('.cur');
+    var max = parseFloat(pool.dataset.max);
+    var key = storeKey + 'pool:' + pool.dataset.pool;
+    var value;
+
+    try {
+      var saved = sessionStorage.getItem(key);
+      value = saved === null ? parseFloat(pool.dataset.base) : parseFloat(saved);
+    } catch (e) {
+      value = parseFloat(pool.dataset.base);
+    }
+    if (isNaN(value)) { value = 0; }
+
+    function paint() {
+      out.textContent = String(value);
+      pool.classList.toggle('hurt', !isNaN(max) && value < max);
+      try { sessionStorage.setItem(key, String(value)); } catch (e) { /* private mode */ }
+    }
+
+    pool.querySelectorAll('button').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        value += parseInt(btn.dataset.step, 10);
+        paint();
+      });
+    });
+
+    // Long-press the label to reset to the sheet's stored value.
+    pool.querySelector('.lbl').addEventListener('dblclick', function () {
+      value = parseFloat(pool.dataset.base);
+      paint();
+    });
+
+    paint();
+  });
+}());
+</script>
+</body>
+</html>
